@@ -33,8 +33,7 @@ def insert_db(json_data):
     conv_info_str = json_data['conv_info_str']
 
     tmp_list = [date_stamp, country_name, conv_info_str]
-
-    query = "INSERT INTO TB_CASE (date_stamp, country_name, conv_info) VALUES (?,?,?);"
+    query = "REPLACE INTO TB_CASE (date_stamp, country_name, conv_info) VALUES (?,?,?);"
 
     db.execute(query, tmp_list)
     db.commit()
