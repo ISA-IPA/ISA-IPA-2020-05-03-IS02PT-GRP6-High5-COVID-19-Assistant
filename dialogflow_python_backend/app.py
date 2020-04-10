@@ -4,7 +4,36 @@ import datetime
 import sqlite3
 from uuid import uuid4
 
+# Use Google Cloud API
+import io
+
 app = Flask(__name__)
+
+
+def va_didi_text_detection(image, API_type='text_detection', maxResults=20):
+    """Detects text in the file."""
+    from google.cloud import vision
+
+    client = vision.ImageAnnotatorClient.from_service_account_json(
+        "D:/GoogleCloud/ipadaiyirui001-9cad5c929128.json")
+
+    with io.open(image, 'rb') as image_file:
+        content = image_file.read()
+
+    image = vision.types.Image(content=content)
+
+    response = client.text_detection(image=image)
+    texts = response.text_annotations
+    image_analysis_reply = ""
+
+    for text in texts:
+        image_analysis_reply += text.description
+
+    resp = {
+        "fulfillment_text": image_analysis_reply
+    }
+
+    return resp
 
 
 def get_covid_status_in_country(host, country, date):
@@ -13,7 +42,7 @@ def get_covid_status_in_country(host, country, date):
     date = date
     host = host
 
-    # TO-DO: Tagui to store Covid-19 data Image at: folder "static" with name "Overall.PNG", "New.PNG" and "Death.PNG"
+    # TO-DO: Tagui to store Covid-19 data Image at: folder "static" with name "Overall.PNG"
     overall = "Overall.PNG"
     new = "New.PNG"
     death = "Death.PNG"
@@ -24,17 +53,60 @@ def get_covid_status_in_country(host, country, date):
                 "platform": "SLACK",
                 "card": {
                     "title": f"Overall Covid-19 Status of {country}",
-                    "image_uri": f"https://{host}/static/{overall}",
-                    "buttons": [
-                        {
-                            "text": "New Cases",
-                            "postback": f"https://{host}/static/{new}"
-                        },
-                        {
-                            "text": "Death Cases",
-                            "postback": f"https://{host}/static/{death}"
-                        }
+                    "image_uri": f"https://{host}/static/{overall}"
+                }
+            },
+            {
+                "platform": "SLACK",
+                "quick_replies": {
+                    "title": "Any specific data you are interested in?",
+                    "quick_replies": [
+                        f"Daily New Cases in {country}", f"Total Death Cases in {country}"
                     ]
+                }
+            }
+        ]
+    }
+
+    return resp
+
+
+def get_covid_new_cases_in_country(host, country):
+    country = country
+    host = host
+
+    # TO-DO: Tagui to store Covid-19 data Image at: folder "static" with name "New.PNG"
+    new = "New.PNG"
+
+    resp = {
+        "fulfillment_messages": [
+            {
+                "platform": "SLACK",
+                "card": {
+                    "title": f"Daily New Covid-19 Cases of {country}",
+                    "image_uri": f"https://{host}/static/{new}"
+                }
+            }
+        ]
+    }
+
+    return resp
+
+
+def get_covid_total_death_cases_in_country(host, country):
+    country = country
+    host = host
+
+    # TO-DO: Tagui to store Covid-19 data Image at: folder "static" with name "Death.PNG"
+    death = "Death.PNG"
+
+    resp = {
+        "fulfillment_messages": [
+            {
+                "platform": "SLACK",
+                "card": {
+                    "title": f"Total Covid-19 Death Cases of {country}",
+                    "image_uri": f"https://{host}/static/{death}"
                 }
             }
         ]
@@ -64,18 +136,30 @@ def upload_temperature_to_website(host, temp):
     return resp
 
 
-def redirect_to_website():
+def redirect_to_website(host):
+    host = host
+
     resp = {
         "fulfillment_messages": [
             {
                 "platform": "SLACK",
                 "card": {
-                    "title": "Today's News Available at:",
+                    "title": "MOH's News Available at:",
+                    "image_uri": f"https://{host}/static/moh.PNG",
                     "buttons": [
                         {
-                            "text": "Singapore MOH",
+                            "text": "Singapore MOH Website",
                             "postback": "https://www.moh.gov.sg/covid-19"
-                        },
+                        }
+                    ]
+                }
+            },
+            {
+                "platform": "SLACK",
+                "card": {
+                    "title": "WHO's News Available at:",
+                    "image_uri": f"https://{host}/static/who.PNG",
+                    "buttons": [
                         {
                             "text": "WHO Website",
                             "postback": "https://www.who.int/emergencies/diseases/novel-coronavirus-2019/situation-reports"
@@ -179,12 +263,20 @@ def main():
         country = req["queryResult"]["parameters"]["country"]
         date = req["queryResult"]["parameters"]["date"]
         resp = get_covid_status_in_country(host, country, date)
-
     elif intent_name == "UploadTemperature":
         temp = req["queryResult"]["parameters"]["temp"]
         resp = upload_temperature_to_website(host, temp)
     elif intent_name == "RedirectToLink":
-        resp = redirect_to_website()
+        resp = redirect_to_website(host)
+    elif intent_name == "DailyNewCases":
+        country = req["queryResult"]["parameters"]["country"]
+        resp = get_covid_new_cases_in_country(host, country)
+    elif intent_name == "TotalDeathCases":
+        country = req["queryResult"]["parameters"]["country"]
+        resp = get_covid_total_death_cases_in_country(host, country)
+    elif intent_name == "ReadTempFromImage":
+        image = "static/575890997.jpg"
+        resp = va_didi_text_detection(image)
     else:
         resp = {
             "fulfillment_text": "Unable to find a matching intent. Try again."
