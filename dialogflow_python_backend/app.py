@@ -88,6 +88,7 @@ def redirect_to_website():
     }
     return resp
 
+
 def get_db():
     db = getattr(g, '_database', None)
     if db is None:
@@ -142,11 +143,12 @@ def raise_case():
 
 @app.route('/query_case', methods=['GET', 'POST'])
 def search_case():
+    date = request.args.get('date')
     search_country = request.args.get('country')
 
-    tmp_list = [search_country]
+    tmp_list = [date, search_country]
 
-    rows = query_db("SELECT * from TB_CASE WHERE COUNTRY = ?", tmp_list)
+    rows = query_db("SELECT * from TB_CASE WHERE date_stamp = ? and country_name = ?", tmp_list)
 
     return jsonify(rows)
 
