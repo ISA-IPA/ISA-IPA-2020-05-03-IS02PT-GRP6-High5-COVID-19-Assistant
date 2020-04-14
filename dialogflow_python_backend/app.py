@@ -2,36 +2,29 @@ from flask import Flask, Response, request, jsonify, g
 import json
 import sqlite3
 from uuid import uuid4
-import pytz
-import datetime
 
-# Use Google Cloud API
-import io
+from google.cloud import translate
 
 app = Flask(__name__)
 
 
-def va_didi_text_detection(image, API_type='text_detection', maxResults=20):
-    """Detects text in the file."""
-    from google.cloud import vision
+def input_text_translation(text, target='zh'):
 
-    client = vision.ImageAnnotatorClient.from_service_account_json(
+    client = translate.TranslationServiceClient.from_service_account_json(
         "D:/GoogleCloud/ipadaiyirui001-9cad5c929128.json")
+    parent = client.location_path('ipadaiyirui001', 'global')
 
-    with io.open(image, 'rb') as image_file:
-        content = image_file.read()
+    contents = [text]
+    target_language_code = target
 
-    image = vision.types.Image(content=content)
+    response = client.translate_text(contents, target_language_code, parent)
 
-    response = client.text_detection(image=image)
-    texts = response.text_annotations
-    image_analysis_reply = ""
-
-    for text in texts:
-        image_analysis_reply += text.description
+    translation_api_reply = ""
+    for translation in response.translations:
+        translation_api_reply += format(translation.translated_text)
 
     resp = {
-        "fulfillment_text": image_analysis_reply
+        "fulfillment_text": translation_api_reply
     }
 
     return resp
@@ -280,9 +273,9 @@ def main():
     elif intent_name == "TotalDeathCases":
         country = req["queryResult"]["parameters"]["country"]
         resp = get_covid_total_death_cases_in_country(host, country)
-    elif intent_name == "ReadTempFromImage":
-        image = "static/575890997.jpg"
-        resp = va_didi_text_detection(image)
+    elif intent_name == "TranslateText":
+        text = req["queryResult"]["parameters"]["text_content"]
+        resp = input_text_translation(text)
     else:
         resp = {
             "fulfillment_text": "Unable to find a matching intent. Try again."
