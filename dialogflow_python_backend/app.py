@@ -2,167 +2,255 @@ from flask import Flask, Response, request, jsonify, g
 import json
 import sqlite3
 from uuid import uuid4
+from datetime import datetime
+from selenium import webdriver
 
 from google.cloud import translate
 
 app = Flask(__name__)
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
+
+driver = webdriver.Chrome('./chromedriver.exe')  # Optional argument, if not specified will search path.
+# driver = webdriver.Chrome(options=options, executable_path=r'chromedriver')
+
+stamp = 0
+temp = 0
+symp = "No"
+
+def get_default_welcome():
+
+    try:
+        date = datetime.today().strftime('%Y-%m-%d')
+        tmp_list = [date, 'Global']
+        rows = query_db("SELECT * from TB_CASE WHERE date_stamp = ? and country_name = ?", tmp_list)
+        result = json.loads(rows[0][2])
+        total_cases = result["total_cases"]
+        total_deaths = result["total_deaths"]
+        total_recovered = result["total_recovered"]
+
+        resp = {
+            "fulfillment_text": f"Hello, worldwide Covid-19 Status: Total Confirmed Cases: {total_cases}, Total Death Cases: {total_deaths}, and Total Recovered Cases: {total_recovered}"
+        }
+    except Exception as e:
+        print(e)
+        resp = {
+            "fulfillment_text": "Hello, Welcome to Covid-19 Status Bot!"
+        }
+    return resp
 
 
 def input_text_translation(text, target='zh'):
+    try:
+        client = translate.TranslationServiceClient.from_service_account_json(
+            "D:/GoogleCloud/ipadaiyirui001-9cad5c929128.json")
+        parent = client.location_path('ipadaiyirui001', 'global')
 
-    client = translate.TranslationServiceClient.from_service_account_json(
-        "D:/GoogleCloud/ipadaiyirui001-9cad5c929128.json")
-    parent = client.location_path('ipadaiyirui001', 'global')
+        contents = [text]
+        target_language_code = target
 
-    contents = [text]
-    target_language_code = target
+        response = client.translate_text(contents, target_language_code, parent)
 
-    response = client.translate_text(contents, target_language_code, parent)
+        translation_api_reply = ""
+        for translation in response.translations:
+            translation_api_reply += format(translation.translated_text)
 
-    translation_api_reply = ""
-    for translation in response.translations:
-        translation_api_reply += format(translation.translated_text)
-
-    resp = {
-        "fulfillment_text": translation_api_reply
-    }
-
+        resp = {
+            "fulfillment_text": translation_api_reply
+        }
+    except Exception as e:
+        print(e)
+        resp = {
+            "fulfillment_text": "Error happens while trying to translate."
+        }
     return resp
 
 
 def get_covid_status_in_country(host, country, date):
-    country = country
-    status = "Severe"
-    date = date
-    host = host
+    try:
+        if date is None:
+            date = datetime.today().strftime('%Y-%m-%d')
+        elif date == "":
+            date = datetime.today().strftime('%Y-%m-%d')
+        else:
+            date = date[:10]
+        print("date: " + str(date))
 
-    # TO-DO: Tagui to store Covid-19 data Image at: folder "static" with name "Overall.PNG"
-    overall = "Overall.PNG"
-    new = "New.PNG"
-    death = "Death.PNG"
+        host = host
 
-    resp = {
-        "fulfillment_messages": [
-            {
-                "platform": "SLACK",
-                "card": {
-                    "title": f"Overall Covid-19 Status of {country}",
-                    "image_uri": f"https://{host}/static/{overall}"
+        if country == "United States":
+            country = "USA"
+        elif country == "United Kingdom":
+            country = "UK"
+        elif country == "United Arab Emirates":
+            country = "UAE"
+        elif country == "South Korea":
+            country = "S. Korea"
+        print("country: " + country)
+
+        tmp_list = [date, country]
+        rows = query_db("SELECT * from TB_CASE WHERE date_stamp = ? and country_name Like ?", tmp_list)
+
+        print(rows)
+        result = json.loads(rows[0][2])
+        total_cases = result["total_cases"]
+        total_deaths = result["total_deaths"]
+        total_recovered = result["total_recovered"]
+
+        # TO-DO: Tagui to store Covid-19 data Image at: folder "static" with name "Overall.PNG"
+        overall = "Overall.PNG"
+
+        resp = {
+            "fulfillment_messages": [
+                {
+                    "platform": "SLACK",
+                    "card": {
+                        "title": f"Overall Covid-19 Status of {country}",
+                        "subtitle": f"Total Confirmed Cases: {total_cases}, Total Death Cases: {total_deaths}, and Total Recovered Cases: {total_recovered}",
+                        "image_uri": f"https://{host}/static/{overall}"
+                    }
                 }
-            },
-            {
-                "platform": "SLACK",
-                "quick_replies": {
-                    "title": "Any specific data you are interested in?",
-                    "quick_replies": [
-                        f"Daily New Cases in {country}", f"Total Death Cases in {country}"
-                    ]
-                }
-            }
-        ]
-    }
-
+            ]
+        }
+    except Exception as e:
+        print(e)
+        resp = {
+            "fulfillment_text": f"Error happens while checking for {country} Covid-19 Status."
+        }
     return resp
 
 
-def get_covid_new_cases_in_country(host, country):
-    country = country
-    host = host
+def get_news_from_db(host):
+    try:
+        rows = query_db("SELECT * FROM NEWS_INFO")
+        size = len(rows)
 
-    # TO-DO: Tagui to store Covid-19 data Image at: folder "static" with name "New.PNG"
-    new = "New.PNG"
-
-    resp = {
-        "fulfillment_messages": [
-            {
-                "platform": "SLACK",
-                "card": {
-                    "title": f"Daily New Covid-19 Cases of {country}",
-                    "image_uri": f"https://{host}/static/{new}"
-                }
-            }
-        ]
-    }
-
-    return resp
-
-
-def get_covid_total_death_cases_in_country(host, country):
-    country = country
-    host = host
-
-    # TO-DO: Tagui to store Covid-19 data Image at: folder "static" with name "Death.PNG"
-    death = "Death.PNG"
-
-    resp = {
-        "fulfillment_messages": [
-            {
-                "platform": "SLACK",
-                "card": {
-                    "title": f"Total Covid-19 Death Cases of {country}",
-                    "image_uri": f"https://{host}/static/{death}"
-                }
-            }
-        ]
-    }
-
-    return resp
-
-
-def upload_temperature_to_website(host, temp):
-    temperature = temp
-
-    # TO-DO: Tagui to store Temperature Image at: folder "static" with name "temperature.jpg"
-    resp_text = f"Your tempurature {temperature} is successfully uploaded."
-    image_name = "temperature.jpg"
-
-    resp = {
-        "fulfillment_messages": [
-            {
-                "platform": "SLACK",
-                "card": {
-                    "title": resp_text,
-                    "image_uri": f"https://{host}/static/{image_name}"
-                }
-            }
-        ]
-    }
-    return resp
-
-
-def redirect_to_website(host):
-    host = host
-
-    resp = {
-        "fulfillment_messages": [
-            {
-                "platform": "SLACK",
-                "card": {
-                    "title": "MOH's News Available at:",
-                    "image_uri": f"https://{host}/static/moh.PNG",
-                    "buttons": [
-                        {
-                            "text": "Singapore MOH Website",
-                            "postback": "https://www.moh.gov.sg/covid-19"
+        if size > 0:
+            resp = {"fulfillment_messages": []}
+            for row in rows:
+                resp["fulfillment_messages"].append(
+                    {
+                        "platform": "SLACK",
+                        "card": {
+                            "title": row[1],
+                            "subtitle": "Summary: " + row[3],
+                            "image_uri": f"https://{host}/static/who.PNG",
+                            "buttons": [
+                                {
+                                    "text": "Read the article",
+                                    "postback": row[2]
+                                }
+                            ]
                         }
-                    ]
-                }
-            },
-            {
-                "platform": "SLACK",
-                "card": {
-                    "title": "WHO's News Available at:",
-                    "image_uri": f"https://{host}/static/who.PNG",
-                    "buttons": [
-                        {
-                            "text": "WHO Website",
-                            "postback": "https://www.who.int/emergencies/diseases/novel-coronavirus-2019/situation-reports"
-                        }
-                    ]
-                }
+                    }
+                )
+        else:
+            resp = {
+                "fulfillment_text": "There's no News available."
             }
-        ]
-    }
+        print(resp)
+    except Exception as e:
+        print(e)
+        resp = {
+            "fulfillment_text": "Error happens while getting news."
+        }
+    return resp
+
+
+def init_upload_temperature():
+    try:
+        email_info = None
+        with open("email_info.json", 'r') as load_f:  # Ask lecturer for this exercise_2/email_info.json file
+            email_info = json.load(load_f)
+
+        email_info = email_info['1']
+
+        options = webdriver.ChromeOptions()
+        options.add_argument("start-maximized")
+        options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        options.add_experimental_option('useAutomationExtension', False)
+        global driver
+
+        driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+            "source": """
+            Object.defineProperty(navigator, 'webdriver', {
+              get: () => undefined
+            })
+          """
+        })
+        driver.get(
+            "https://vafs.nus.edu.sg/adfs/oauth2/authorize?response_type=code&client_id=97F0D1CACA7D41DE87538F9362924CCB-184318&resource=sg_edu_nus_oauth&redirect_uri=https%3A%2F%2Fmyaces.nus.edu.sg%3A443%2Fhtd%2Fhtd")
+
+        email = driver.find_element_by_xpath("//input[@id='userNameInput']");
+
+        password = driver.find_element_by_xpath("//input[@id='passwordInput']");
+
+        email.send_keys(email_info['email']);
+        password.send_keys(email_info['password']);
+
+        login = driver.find_element_by_id("submitButton");
+        login.click()
+
+    except Exception as e:
+        print(e)
+
+
+def trigger_upload_temperature(temp, symp):
+    try:
+        global driver
+        temperature = driver.find_element_by_xpath("//input[@id='temperature']");
+        symptom_y = driver.find_element_by_xpath("//input[@value='Y']");
+        symptom_n = driver.find_element_by_xpath("//input[@value='N']");
+
+        temperature.send_keys(str(temp))
+
+        if 'y' in symp:
+            symptom_y.click();
+        else:
+            symptom_n.click();
+
+        submit = driver.find_element_by_xpath("//input[@value='Submit']");
+
+        submit.click();
+
+        st = datetime.now()
+        global stamp
+        stamp = str(st).replace(' ', '_').replace(':', '_').replace('.', '_')
+
+        driver.save_screenshot("./static/nus_temp_screenshot_" + stamp + ".png")
+
+        back = driver.find_element_by_xpath("//input[@value='Back']");
+
+        back.click();
+
+    except Exception as e:
+        print(e)
+
+
+def get_screenshot_from_local(host):
+    try:
+        resp = {
+            "fulfillment_messages": [
+                {
+                    "platform": "SLACK",
+                    "card": {
+                        "title": f"The screenshot of your latest upload",
+                        "subtitle": f"Your record - Temperature: {temp}, and Symptom: {symp}",
+                        "image_uri": f"https://{host}/static/nus_temp_screenshot_{stamp}.png"
+                    }
+                },
+                {
+                    "platform": "SLACK",
+                    "quick_replies": {
+                        "quick_replies": ["Check my records", "Greetings", "News?"]
+                    }
+                }
+            ]
+        }
+    except Exception as e:
+        print(e)
+        resp = {
+            "fulfillment_text": "Error happens while checking screenshot."
+        }
     return resp
 
 
@@ -196,6 +284,14 @@ def close_connection(exception):
     db = getattr(g, '_database', None)
     if db is not None:
         db.close()
+
+
+@app.after_request
+def add_header(response):
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Expires'] = '0'
+    return response
 
 
 @app.route("/")  # take note of this decorator syntax, it's a common pattern
@@ -237,7 +333,7 @@ def init_db():
                                           country_name text NOT NULL,
                                           conv_info text NOT NULL,  
                                           PRIMARY KEY(date_stamp, country_name)
-                                      ); """
+                                      );"""
 
     update_db(sql_create_table)
     return "DB created!"
@@ -251,6 +347,20 @@ def drop_table():
     return "DB dropped!"
 
 
+@app.route('/create_news', methods=['POST'])
+def create_news_db():
+    sql_create_table = """ CREATE TABLE IF NOT EXISTS NEWS_INFO (
+                                          date_stamp text NOT NULL,
+                                          news_title text NOT NULL,
+                                          news_link text NOT NULL,
+                                          news_summary text NOT NULL,  
+                                          PRIMARY KEY(date_stamp, news_title)
+                                      );"""
+
+    update_db(sql_create_table)
+    return "DB created!"
+
+
 @app.route("/main", methods=["POST"])
 def main():
     req = request.get_json(silent=True, force=True)
@@ -258,21 +368,40 @@ def main():
     intent_name = req["queryResult"]["intent"]["displayName"]
     print(req)
 
-    if intent_name == "CheckCovidStatus":
+    if intent_name == "Default Welcome Intent":
+        resp = get_default_welcome()
+    elif intent_name == "CheckCovidStatus":
         country = req["queryResult"]["parameters"]["country"]
         date = req["queryResult"]["parameters"]["date"]
         resp = get_covid_status_in_country(host, country, date)
-    elif intent_name == "UploadTemperature":
-        temp = req["queryResult"]["parameters"]["temp"]
-        resp = upload_temperature_to_website(host, temp)
-    elif intent_name == "RedirectToLink":
-        resp = redirect_to_website(host)
-    elif intent_name == "DailyNewCases":
-        country = req["queryResult"]["parameters"]["country"]
-        resp = get_covid_new_cases_in_country(host, country)
-    elif intent_name == "TotalDeathCases":
-        country = req["queryResult"]["parameters"]["country"]
-        resp = get_covid_total_death_cases_in_country(host, country)
+    elif intent_name == "PopulateTemperature":
+        temp_var = req["queryResult"]["parameters"]["temp"]
+        global temp
+        temp = temp_var
+        resp = {
+            "fulfillment_text": f"Your Temperature: {temp} is recorded. Do you have any symptom?"
+        }
+    elif intent_name == "PopulateSymptom":
+        symp_var = req["queryResult"]["parameters"]["symp"]
+        global symp
+        symp = symp_var
+
+        trigger_upload_temperature(temp, symp)
+        resp = {
+            "fulfillment_messages": [
+                {
+                    "platform": "SLACK",
+                    "quick_replies": {
+                        "title": "Your record have been successfully uploaded.",
+                        "quick_replies": ["Check my records", "Greetings", "News?"]
+                    }
+                }
+            ]
+        }
+    elif intent_name == "CheckRecord":
+        resp = get_screenshot_from_local(host)
+    elif intent_name == "RetrieveNews":
+        resp = get_news_from_db(host)
     elif intent_name == "TranslateText":
         text = req["queryResult"]["parameters"]["text_content"]
         resp = input_text_translation(text)
@@ -289,6 +418,8 @@ if __name__ == '__main__':
 
     # Generate a globally unique address for this node
     node_identifier = str(uuid4()).replace('-', '')
+
+    init_upload_temperature()
 
     print(node_identifier)
     from argparse import ArgumentParser
