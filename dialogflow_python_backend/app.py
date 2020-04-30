@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 from selenium import webdriver
 import matplotlib.pyplot as plt
 
-from google.cloud import translate
 
 app = Flask(__name__)
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
@@ -17,6 +16,9 @@ driver = webdriver.Chrome('./chromedriver.exe')  # Optional argument, if not spe
 stamp = 0
 temp = 0
 symp = "No"
+email = ""
+language = []
+
 
 def get_default_welcome():
 
@@ -40,30 +42,18 @@ def get_default_welcome():
     return resp
 
 
-def input_text_translation(text, target='zh'):
+def update_subscription_in_db():
     try:
-        client = translate.TranslationServiceClient.from_service_account_json(
-            "D:/GoogleCloud/ipadaiyirui001-9cad5c929128.json")
-        parent = client.location_path('ipadaiyirui001', 'global')
-
-        contents = [text]
-        target_language_code = target
-
-        response = client.translate_text(contents, target_language_code, parent)
-
-        translation_api_reply = ""
-        for translation in response.translations:
-            translation_api_reply += format(translation.translated_text)
-
-        resp = {
-            "fulfillment_text": translation_api_reply
-        }
+        date_stamp = datetime.now()
+        language_text = ""
+        for lang in language:
+            language_text += lang + ","
+        language_text = language_text[:-1]
+        print("Language: " + language_text)
+        tmp_list = [email, date_stamp, language_text]
+        update_db("REPLACE INTO SUBSCRIPTION_INFO (to_email, date_stamp, languages) VALUES (?,?,?);", tmp_list)
     except Exception as e:
         print(e)
-        resp = {
-            "fulfillment_text": "Error happens while trying to translate."
-        }
-    return resp
 
 
 def get_covid_status_in_country(host, country, date):
@@ -399,6 +389,19 @@ def create_news_db():
     return "DB created!"
 
 
+@app.route('/create_subscription', methods=['POST'])
+def create_subscription_db():
+    sql_create_table = """ CREATE TABLE IF NOT EXISTS SUBSCRIPTION_INFO (
+                                          to_email text NOT NULL,
+                                          date_stamp text NOT NULL,
+                                          languages text NOT NULL, 
+                                          PRIMARY KEY(to_email)
+                                      );"""
+
+    update_db(sql_create_table)
+    return "DB created!"
+
+
 @app.route("/main", methods=["POST"])
 def main():
     req = request.get_json(silent=True, force=True)
@@ -442,9 +445,23 @@ def main():
         resp = get_screenshot_from_local(host)
     elif intent_name == "RetrieveNews":
         resp = get_news_from_db(host)
-    elif intent_name == "TranslateText":
-        text = req["queryResult"]["parameters"]["text_content"]
-        resp = input_text_translation(text)
+    elif intent_name == "PopulateEmailAddress":
+        email_var = req["queryResult"]["parameters"]["email"]
+        global email
+        email = email_var
+        resp = {
+            "fulfillment_text": f"Your Email Address: {email} is recorded. "
+                                f"What's your preferred languages? If multiple languages preferred, please use "
+                                f"comma - ',' to separate them: English, Chinese"
+        }
+    elif intent_name == "PopulateLanguagesList":
+        language_var = req["queryResult"]["parameters"]["language"]
+        global language
+        language = language_var
+        update_subscription_in_db()
+        resp = {
+            "fulfillment_text": f"Your subscription has been successfully updated. "
+        }
     else:
         resp = {
             "fulfillment_text": "Unable to find a matching intent. Try again."
