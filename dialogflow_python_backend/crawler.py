@@ -109,7 +109,7 @@ def convert_extracted_numbers(raw_value):
     try:
         result = int(raw_value.strip().replace('+', '').replace(',', ''))
     except Exception as e:
-        print('Exception happened for ' + raw_value)
+        print('Exception happened while trying to convert for ' + raw_value + ' to integer, setting value to 0')
         result = 0
     return result
 
