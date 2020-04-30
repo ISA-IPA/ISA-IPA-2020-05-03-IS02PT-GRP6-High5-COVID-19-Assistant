@@ -2,8 +2,9 @@ from flask import Flask, Response, request, jsonify, g
 import json
 import sqlite3
 from uuid import uuid4
-from datetime import datetime
+from datetime import datetime, timedelta
 from selenium import webdriver
+import matplotlib.pyplot as plt
 
 from google.cloud import translate
 
@@ -96,8 +97,7 @@ def get_covid_status_in_country(host, country, date):
         total_deaths = result["total_deaths"]
         total_recovered = result["total_recovered"]
 
-        # TO-DO: Tagui to store Covid-19 data Image at: folder "static" with name "Overall.PNG"
-        overall = "Overall.PNG"
+        plot_line_chart_by_country(country)
 
         resp = {
             "fulfillment_messages": [
@@ -106,7 +106,7 @@ def get_covid_status_in_country(host, country, date):
                     "card": {
                         "title": f"Overall Covid-19 Status of {country}",
                         "subtitle": f"Total Confirmed Cases: {total_cases}, Total Death Cases: {total_deaths}, and Total Recovered Cases: {total_recovered}",
-                        "image_uri": f"https://{host}/static/{overall}"
+                        "image_uri": f"https://{host}/static/covid_no_trend_{country}.png"
                     }
                 }
             ]
@@ -117,6 +117,44 @@ def get_covid_status_in_country(host, country, date):
             "fulfillment_text": f"Error happens while checking for {country} Covid-19 Status."
         }
     return resp
+
+
+def plot_line_chart_by_country(country):
+    try:
+        threshold = datetime.today() - timedelta(days=5)
+        threshold_str = threshold.strftime('%Y-%m-%d')
+        print("Threshold: " + str(threshold))
+
+        tmp_list = [country, threshold_str]
+        rows = query_db("SELECT * from TB_CASE WHERE country_name = ? AND date_stamp > ? ORDER BY date_stamp ASC", tmp_list)
+
+        date_stamp_list = [(threshold + timedelta(days=1)).strftime('%Y-%m-%d'),
+                           (threshold + timedelta(days=2)).strftime('%Y-%m-%d'),
+                           (threshold + timedelta(days=3)).strftime('%Y-%m-%d'),
+                           (threshold + timedelta(days=4)).strftime('%Y-%m-%d'),
+                           (threshold + timedelta(days=5)).strftime('%Y-%m-%d')]
+        confirmed_no_list = [0, 0, 0, 0, 0]
+        new_no_list = [0, 0, 0, 0, 0]
+        death_no_list = [0, 0, 0, 0, 0]
+
+        for row in rows:
+            date_stamp = str(row[0])
+            if date_stamp in date_stamp_list:
+                index = date_stamp_list.index(date_stamp)
+                result = json.loads(row[2])
+                confirmed_no_list[index] = result["total_cases"]
+                new_no_list[index] = result["new_cases"]
+                death_no_list[index] = result["total_deaths"]
+
+        plt.plot(date_stamp_list, confirmed_no_list, label="Total Confirmed")
+        plt.plot(date_stamp_list, new_no_list, label="New Case")
+        plt.plot(date_stamp_list, death_no_list, label="Total Death")
+        plt.legend()
+        plt.savefig("./static/covid_no_trend_" + country + ".png")
+    except Exception as e:
+        print(e)
+    finally:
+        plt.close("all")
 
 
 def get_news_from_db(host):
@@ -373,6 +411,8 @@ def main():
     elif intent_name == "CheckCovidStatus":
         country = req["queryResult"]["parameters"]["country"]
         date = req["queryResult"]["parameters"]["date"]
+        if country is None or country == "":
+            country = "Global"
         resp = get_covid_status_in_country(host, country, date)
     elif intent_name == "PopulateTemperature":
         temp_var = req["queryResult"]["parameters"]["temp"]
