@@ -110,7 +110,7 @@ def send_subscription_email():
         print(e)
 
 
-schedule.every().day.at("00:05").do(send_subscription_email)
+schedule.every().day.at("11:10").do(send_subscription_email)
 
 while True:
     schedule.run_pending()

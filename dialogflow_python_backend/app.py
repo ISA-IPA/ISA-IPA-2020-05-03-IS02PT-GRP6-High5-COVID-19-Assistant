@@ -95,7 +95,9 @@ def get_covid_status_in_country(host, country, date):
                     "platform": "SLACK",
                     "card": {
                         "title": f"Overall Covid-19 Status of {country}",
-                        "subtitle": f"Total Confirmed Cases: {total_cases}, Total Death Cases: {total_deaths}, and Total Recovered Cases: {total_recovered}",
+                        "subtitle": f"Total Confirmed Cases: {total_cases}, \n"
+                                    f"Total Death Cases: {total_deaths}, \n"
+                                    f"and Total Recovered Cases: {total_recovered}",
                         "image_uri": f"https://{host}/static/covid_no_trend_{country}.png"
                     }
                 }
@@ -435,7 +437,7 @@ def main():
                 {
                     "platform": "SLACK",
                     "quick_replies": {
-                        "title": "Your record have been successfully uploaded.",
+                        "title": "Your request has been processed.",
                         "quick_replies": ["Check my records", "Greetings", "News?"]
                     }
                 }

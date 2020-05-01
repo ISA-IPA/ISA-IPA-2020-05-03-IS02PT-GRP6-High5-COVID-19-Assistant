@@ -3,8 +3,6 @@ import sqlite3
 
 import pytz
 import tagui as t
-import pandas as pd
-import numpy as np
 
 from goose3 import Goose
 from collections import Counter
