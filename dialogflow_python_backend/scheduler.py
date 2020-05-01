@@ -89,6 +89,7 @@ def send_subscription_email():
         title = news_rows[0][1]
         content = news_rows[0][3]
         message = content
+        message += "\n"
 
         for row in subs_rows:
             msg = MIMEMultipart()
@@ -99,6 +100,7 @@ def send_subscription_email():
             for lang in languages:
                 if lang != "English":
                     message += input_text_translation(content, lang)
+                    message += "\n"
             message += " Read more: " + news_rows[0][2]
             msg.attach(MIMEText(message, 'plain'))
             s = smtplib.SMTP('smtp.gmail.com: 587')
@@ -110,7 +112,7 @@ def send_subscription_email():
         print(e)
 
 
-schedule.every().day.at("11:10").do(send_subscription_email)
+schedule.every().day.at("00:05").do(send_subscription_email)
 
 while True:
     schedule.run_pending()

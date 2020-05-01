@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 app = Flask(__name__)
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 
-driver = webdriver.Chrome('./chromedriver.exe')  # Optional argument, if not specified will search path.
+driver = webdriver.Chrome('./chromedriver')  # Optional argument, if not specified will search path.
 # driver = webdriver.Chrome(options=options, executable_path=r'chromedriver')
 
 stamp = 0
@@ -32,12 +32,30 @@ def get_default_welcome():
         total_recovered = result["total_recovered"]
 
         resp = {
-            "fulfillment_text": f"Hello, worldwide Covid-19 Status: Total Confirmed Cases: {total_cases}, Total Death Cases: {total_deaths}, and Total Recovered Cases: {total_recovered}"
+            "fulfillment_messages": [
+                {
+                    "platform": "SLACK",
+                    "text": {
+                        "text": [
+                            f"**Hello, worldwide COVID-19 Status:** \n"
+                            f"Total Confirmed Cases: {total_cases}, \n"
+                            f"Total Death Cases: {total_deaths}, \n"
+                            f"Total Recovered Cases: {total_recovered}. \n"
+                            f"**Input one of below options to continue:**\n"
+                            f"\"Upload Temperature\" - Upload your temperature to NUS Temperature Declaring System.\n"
+                            f"\"Update Subscription\" - Update your subscription preference.\n"
+                            f"\"COVID-19 Data by Country\" - Check COVID-19 Data by Input Country.\n"
+                            f"\"Latest News\" - Get latest News regarding COVID-19.\n"
+                        ]
+                    }
+                }
+            ]
         }
+
     except Exception as e:
         print(e)
         resp = {
-            "fulfillment_text": "Hello, Welcome to Covid-19 Status Bot!"
+            "fulfillment_text": "Hello, Welcome to COVID-19 Status Bot!"
         }
     return resp
 
@@ -84,8 +102,12 @@ def get_covid_status_in_country(host, country, date):
         print(rows)
         result = json.loads(rows[0][2])
         total_cases = result["total_cases"]
+        new_cases = result["new_cases"]
         total_deaths = result["total_deaths"]
+        new_deaths = result["new_deaths"]
         total_recovered = result["total_recovered"]
+        active_cases = result["active_cases"]
+        serious_cases = result["serious_cases"]
 
         plot_line_chart_by_country(country)
 
@@ -94,10 +116,14 @@ def get_covid_status_in_country(host, country, date):
                 {
                     "platform": "SLACK",
                     "card": {
-                        "title": f"Overall Covid-19 Status of {country}",
+                        "title": f"**Overall COVID-19 Status of {country}**",
                         "subtitle": f"Total Confirmed Cases: {total_cases}, \n"
+                                    f"New Confirmed Cases: {new_cases}, \n"
                                     f"Total Death Cases: {total_deaths}, \n"
-                                    f"and Total Recovered Cases: {total_recovered}",
+                                    f"New Death Cases: {new_deaths}, \n"
+                                    f"Total Recovered Cases: {total_recovered}, \n"
+                                    f"Active Cases: {active_cases}, \n"
+                                    f"Serious Cases: {serious_cases}, \n",
                         "image_uri": f"https://{host}/static/covid_no_trend_{country}.png"
                     }
                 }
@@ -106,7 +132,7 @@ def get_covid_status_in_country(host, country, date):
     except Exception as e:
         print(e)
         resp = {
-            "fulfillment_text": f"Error happens while checking for {country} Covid-19 Status."
+            "fulfillment_text": f"Error happens while checking for {country} COVID-19 Status."
         }
     return resp
 
@@ -233,7 +259,7 @@ def trigger_upload_temperature(temp, symp):
 
         temperature.send_keys(str(temp))
 
-        if 'y' in symp:
+        if symp == "yes":
             symptom_y.click();
         else:
             symptom_n.click();
@@ -271,7 +297,7 @@ def get_screenshot_from_local(host):
                 {
                     "platform": "SLACK",
                     "quick_replies": {
-                        "quick_replies": ["Check my records", "Greetings", "News?"]
+                        "quick_replies": ["Check my records", "Home", "Latest News"]
                     }
                 }
             ]
@@ -410,6 +436,7 @@ def main():
     host = request.host
     intent_name = req["queryResult"]["intent"]["displayName"]
     print(req)
+    global symp
 
     if intent_name == "Default Welcome Intent":
         resp = get_default_welcome()
@@ -419,6 +446,10 @@ def main():
         if country is None or country == "":
             country = "Global"
         resp = get_covid_status_in_country(host, country, date)
+    elif intent_name == "PopulateCountry":
+        country = req["queryResult"]["parameters"]["country"]
+        date = None
+        resp = get_covid_status_in_country(host, country, date)
     elif intent_name == "PopulateTemperature":
         temp_var = req["queryResult"]["parameters"]["temp"]
         global temp
@@ -426,23 +457,38 @@ def main():
         resp = {
             "fulfillment_text": f"Your Temperature: {temp} is recorded. Do you have any symptom?"
         }
-    elif intent_name == "PopulateSymptom":
-        symp_var = req["queryResult"]["parameters"]["symp"]
-        global symp
-        symp = symp_var
+    elif intent_name == "PopulateSymptom-yes":
+        symp = "yes"
 
         trigger_upload_temperature(temp, symp)
-        resp = {
-            "fulfillment_messages": [
-                {
-                    "platform": "SLACK",
-                    "quick_replies": {
-                        "title": "Your request has been processed.",
-                        "quick_replies": ["Check my records", "Greetings", "News?"]
-                    }
-                }
-            ]
-        }
+        # resp = {
+        #     "fulfillment_messages": [
+        #         {
+        #             "platform": "SLACK",
+        #             "quick_replies": {
+        #                 "title": "Your request has been processed.",
+        #                 "quick_replies": ["Check my records", "Home", "Latest News"]
+        #             }
+        #         }
+        #     ]
+        # }
+        resp = get_screenshot_from_local(host)
+    elif intent_name == "PopulateSymptom-no":
+        symp = "no"
+
+        trigger_upload_temperature(temp, symp)
+        # resp = {
+        #     "fulfillment_messages": [
+        #         {
+        #             "platform": "SLACK",
+        #             "quick_replies": {
+        #                 "title": "Your request has been processed.",
+        #                 "quick_replies": ["Check my records", "Home", "Latest News"]
+        #             }
+        #         }
+        #     ]
+        # }
+        resp = get_screenshot_from_local(host)
     elif intent_name == "CheckRecord":
         resp = get_screenshot_from_local(host)
     elif intent_name == "RetrieveNews":
@@ -465,9 +511,7 @@ def main():
             "fulfillment_text": f"Your subscription has been successfully updated. "
         }
     else:
-        resp = {
-            "fulfillment_text": "Unable to find a matching intent. Try again."
-        }
+        resp = get_default_welcome()
 
     return Response(json.dumps(resp), status=200, content_type="application/json")
 
