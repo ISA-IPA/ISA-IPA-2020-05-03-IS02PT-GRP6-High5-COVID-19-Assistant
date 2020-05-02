@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 from selenium import webdriver
 import matplotlib.pyplot as plt
 
-
 app = Flask(__name__)
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 
@@ -109,7 +108,7 @@ def get_covid_status_in_country(host, country, date):
         active_cases = result["active_cases"]
         serious_cases = result["serious_cases"]
 
-        plot_line_chart_by_country(country)
+        #plot_line_chart_by_country(country)
 
         resp = {
             "fulfillment_messages": [
@@ -124,7 +123,7 @@ def get_covid_status_in_country(host, country, date):
                                     f"Total Recovered Cases: {total_recovered}, \n"
                                     f"Active Cases: {active_cases}, \n"
                                     f"Serious Cases: {serious_cases}, \n",
-                        "image_uri": f"https://{host}/static/covid_no_trend_{country}.png"
+                        "image_uri": f"https://{host}/static/trend/{country}.png"
                     }
                 }
             ]
@@ -168,7 +167,7 @@ def plot_line_chart_by_country(country):
         plt.plot(date_stamp_list, new_no_list, label="New Case")
         plt.plot(date_stamp_list, death_no_list, label="Total Death")
         plt.legend()
-        plt.savefig("./static/covid_no_trend_" + country + ".png")
+        plt.savefig("./static/trend/" + country + ".png")
     except Exception as e:
         print(e)
     finally:
