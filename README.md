@@ -23,11 +23,11 @@ Our team designed a system which can retrieve COVID-19 data and provide users ba
 {URL_to_video}
 
 
-# SECTION 4 : USER GUIDE
+# SECTION 4 : PROJECT REPORT / PAPER
 
 {URL_to_guide}
 
 
-# SECTION 5 : PROJECT REPORT / PAPER
+# SECTION 5 : MISCELLANEOUS
 
-{URL_to_report}
+Proof of Concept and Test of modules are in the ./scripts folder
