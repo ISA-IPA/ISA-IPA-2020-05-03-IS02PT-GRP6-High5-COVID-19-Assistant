@@ -20,7 +20,7 @@ Our team designed a system which can retrieve COVID-19 data and provide users ba
 
 # SECTION 3 : VIDEO
 
-https://youtu.be/w2INw_zed8g
+[a link](https://youtu.be/w2INw_zed8g)
 
 
 # SECTION 4 : PROJECT REPORT / PAPER
