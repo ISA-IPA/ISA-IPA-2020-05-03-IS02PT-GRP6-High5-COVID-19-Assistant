@@ -24,7 +24,7 @@ Our team designed a system which can retrieve COVID-19 data and provide users ba
 
 # SECTION 4 : PROJECT REPORT / PAPER
 
-{PAPER}
+[Project Report](https://github.com/ddgone2far/ISA-IPA-2020-03-11-IS1PT-GRP-High5/blob/master/documents/ISA-IPA-2020-03-11-IS1PT-GRP-High5-Report.pdf)
 
 
 # SECTION 5 : MISCELLANEOUS
