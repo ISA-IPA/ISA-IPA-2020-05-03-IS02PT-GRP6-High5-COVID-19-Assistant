@@ -45,9 +45,9 @@ driver = webdriver.Chrome('./chromedriver')
 options_country = {
     'format': 'png',
     'crop-h': '950',
-    'crop-w': '1450',
-    'crop-x': '1',
-    'crop-y': '1',
+    'crop-w': '700',
+    'crop-x': '0',
+    'crop-y': '0',
     'encoding': "UTF-8"
 }
 
