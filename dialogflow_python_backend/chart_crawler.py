@@ -51,15 +51,6 @@ options_country = {
     'encoding': "UTF-8"
 }
 
-options_global = {
-    'format': 'png',
-    'crop-h': '400',
-    'crop-w': '350',
-    'crop-x': '3',
-    'crop-y': '3',
-    'encoding': "UTF-8"
-}
-
 path_wkthmltoimage = r'D:\wkhtmltopdf\bin\wkhtmltoimage.exe'
 config = imgkit.config(wkhtmltoimage=path_wkthmltoimage)
 
@@ -73,5 +64,7 @@ for n in range(num_country):
         imgkit.from_string(country_case_chart_element, f'./static/trend/{country_list[n]}.png', options=options_country, config=config)
     except Exception as e:
         print(f"Exception: {e} happen. Skipping")
+        driver.close()  # Occasionally, seesion might get closed by remote server.
+        driver = webdriver.Chrome('./chromedriver')  # Closing web driver and starting a new session.
 
 driver.close()
