@@ -12,7 +12,7 @@ Our team designed a system which can retrieve COVID-19 data and provide users ba
 
 # SECTION 2 : TEAM MEMBERS
 | Official Full Name | Student ID (MTech Applicable)| Email (Optional) |
-| :---: | :---: | :---: | :---: |
+| :---: | :---: | :---: |
 | DAI YIRUI | A0195167U | e0384798@u.nus.edu |
 | GUO FENG | A0195173Y | e0384804@u.nus.edu |
 | LI DUO | A0195364W | e0384995@u.nus.edu |
